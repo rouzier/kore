@@ -932,7 +932,7 @@ http_populate_post(struct http_request *req)
 {
 	ssize_t			ret;
 	int			i, v;
-	struct kore_buf		*body;
+	struct kore_buf		body;
 	char			data[BUFSIZ];
 	char			*args[HTTP_MAX_QUERY_ARGS], *val[3], *string;
 
@@ -940,20 +940,20 @@ http_populate_post(struct http_request *req)
 		return;
 
 	if (req->http_body != NULL) {
-		body = NULL;
+		body.data = NULL;
 		req->http_body->offset = req->content_length;
 		string = kore_buf_stringify(req->http_body, NULL);
 	} else {
-		body = kore_buf_alloc(128);
+		kore_buf_init(&body, 128);
 		for (;;) {
 			ret = http_body_read(req, data, sizeof(data));
 			if (ret == -1)
 				goto out;
 			if (ret == 0)
 				break;
-			kore_buf_append(body, data, ret);
+			kore_buf_append(&body, data, ret);
 		}
-		string = kore_buf_stringify(body, NULL);
+		string = kore_buf_stringify(&body, NULL);
 	}
 
 	v = kore_split_string(string, "&", args, HTTP_MAX_QUERY_ARGS);
@@ -964,8 +964,8 @@ http_populate_post(struct http_request *req)
 	}
 
 out:
-	if (body != NULL)
-		kore_buf_free(body);
+	if (body.data != NULL)
+		kore_buf_cleanup(&body);
 }
 
 void
@@ -1470,25 +1470,25 @@ static void
 multipart_add_field(struct http_request *req, struct kore_buf *in,
     char *name, const char *boundary, const int blen)
 {
-	struct kore_buf		*data;
+	struct kore_buf		data;
 	char			*string;
 
-	data = kore_buf_alloc(128);
+	kore_buf_init(&data, 128);
 
-	if (!multipart_find_data(in, data, NULL, req, boundary, blen)) {
-		kore_buf_free(data);
+	if (!multipart_find_data(in, &data, NULL, req, boundary, blen)) {
+		kore_buf_cleanup(&data);
 		return;
 	}
 
-	if (data->offset < 3) {
-		kore_buf_free(data);
+	if (data.offset < 3) {
+		kore_buf_cleanup(&data);
 		return;
 	}
 
-	data->offset -= 2;
-	string = kore_buf_stringify(data, NULL);
+	data.offset -= 2;
+	string = kore_buf_stringify(&data, NULL);
 	http_argument_add(req, name, string, 0);
-	kore_buf_free(data);
+	kore_buf_cleanup(&data);
 }
 
 static void

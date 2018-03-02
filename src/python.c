@@ -1153,7 +1153,7 @@ pyhttp_get_body(struct pyhttp_request *pyreq, void *closure)
 	}
 
 	body = PyBytes_FromStringAndSize((char *)buf.data, buf.offset);
-	kore_buf_free(&buf);
+	kore_buf_cleanup(&buf);
 
 	if (body == NULL)
 		return (PyErr_NoMemory());

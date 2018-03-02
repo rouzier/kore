@@ -448,7 +448,7 @@ int
 kore_base64_decode(const char *in, u_int8_t **out, size_t *olen)
 {
 	int			i, c;
-	struct kore_buf		*res;
+	struct kore_buf		res;
 	u_int8_t		d, n, o;
 	u_int32_t		b, len, idx;
 
@@ -457,7 +457,7 @@ kore_base64_decode(const char *in, u_int8_t **out, size_t *olen)
 	d = 0;
 	c = 0;
 	len = strlen(in);
-	res = kore_buf_alloc(len);
+	kore_buf_init(&res, len);
 
 	for (idx = 0; idx < len; idx++) {
 		c = in[idx];
@@ -473,7 +473,7 @@ kore_base64_decode(const char *in, u_int8_t **out, size_t *olen)
 
 		if (o == sizeof(b64table)) {
 			*out = NULL;
-			kore_buf_free(res);
+			kore_buf_cleanup(&res);
 			return (KORE_RESULT_ERROR);
 		}
 
@@ -482,7 +482,7 @@ kore_base64_decode(const char *in, u_int8_t **out, size_t *olen)
 		if (i == 0) {
 			for (i = 2; i >= 0; i--) {
 				n = (b >> (8 * i));
-				kore_buf_append(res, &n, 1);
+				kore_buf_append(&res, &n, 1);
 			}
 
 			b = 0;
@@ -493,18 +493,20 @@ kore_base64_decode(const char *in, u_int8_t **out, size_t *olen)
 	if (c == '=') {
 		if (i > 2) {
 			*out = NULL;
-			kore_buf_free(res);
+			kore_buf_cleanup(&res);
 			return (KORE_RESULT_ERROR);
 		}
 
 		o = i;
 		for (i = 2; i >= o; i--) {
 			n = (b >> (8 * i));
-			kore_buf_append(res, &n, 1);
+			kore_buf_append(&res, &n, 1);
 		}
 	}
 
-	*out = kore_buf_release(res, olen);
+	*out = res.data;
+	*olen = res.offset;
+
 	return (KORE_RESULT_OK);
 }
 

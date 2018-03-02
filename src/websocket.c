@@ -53,7 +53,7 @@ kore_websocket_handshake(struct http_request *req, const char *onconnect,
     const char *onmessage, const char *ondisconnect)
 {
 	SHA_CTX			sctx;
-	struct kore_buf		*buf;
+	struct kore_buf		buf;
 	char			*base64;
 	const char		*key, *version;
 	u_int8_t		digest[SHA_DIGEST_LENGTH];
@@ -75,14 +75,14 @@ kore_websocket_handshake(struct http_request *req, const char *onconnect,
 		return;
 	}
 
-	buf = kore_buf_alloc(128);
-	kore_buf_appendf(buf, "%s%s", key, WEBSOCKET_SERVER_RESPONSE);
+	kore_buf_init(&buf, 128);
+	kore_buf_appendf(&buf, "%s%s", key, WEBSOCKET_SERVER_RESPONSE);
 
 	(void)SHA1_Init(&sctx);
-	(void)SHA1_Update(&sctx, buf->data, buf->offset);
+	(void)SHA1_Update(&sctx, buf.data, buf.offset);
 	(void)SHA1_Final(digest, &sctx);
 
-	kore_buf_free(buf);
+	kore_buf_cleanup(&buf);
 
 	if (!kore_base64_encode(digest, sizeof(digest), &base64)) {
 		kore_debug("failed to base64 encode digest");
@@ -157,24 +157,24 @@ kore_websocket_broadcast(struct connection *src, u_int8_t op, const void *data,
     size_t len, int scope)
 {
 	struct connection	*c;
-	struct kore_buf		*frame;
+	struct kore_buf		frame;
 
-	frame = kore_buf_alloc(len);
-	websocket_frame_build(frame, op, data, len);
+	kore_buf_init(&frame, len);
+	websocket_frame_build(&frame, op, data, len);
 
 	TAILQ_FOREACH(c, &connections, list) {
 		if (c != src && c->proto == CONN_PROTO_WEBSOCKET) {
-			net_send_queue(c, frame->data, frame->offset);
+			net_send_queue(c, frame.data, frame.offset);
 			net_send_flush(c);
 		}
 	}
 
 	if (scope == WEBSOCKET_BROADCAST_GLOBAL) {
 		kore_msg_send(KORE_MSG_WORKER_ALL,
-		    KORE_MSG_WEBSOCKET, frame->data, frame->offset);
+		    KORE_MSG_WEBSOCKET, frame.data, frame.offset);
 	}
 
-	kore_buf_free(frame);
+	kore_buf_cleanup(&frame);
 }
 
 static void
